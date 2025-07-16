@@ -4,19 +4,10 @@ import { UserIcon } from "@heroicons/react/24/outline";
 
 // Assume these icons are imported from an icon library
 import {
-  BoxCubeIcon,
-  CalenderIcon,
   ChevronDownIcon,
   FileIcon,
-  GridIcon,
   HorizontaLDots,
-  ListIcon,
   MailIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
-  UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import UserDropdown from "../components/header/UserDropdown";

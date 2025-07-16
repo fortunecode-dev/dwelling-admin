@@ -5,7 +5,7 @@ import FileTree from "./components/FileTree";
 
 export default function Docs() {
     const [tree, setTree] = useState([]);
-    const refreshTree = useCallback((submitResponse: any = null) => {
+    const refreshTree = useCallback(() => {
 
         fetch(`${import.meta.env.VITE_SERVER_URL}/files/tree/`)
             .then((res) => res.json())
