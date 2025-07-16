@@ -8,6 +8,7 @@ interface DropdownItemProps {
   onItemClick?: () => void;
   baseClassName?: string;
   className?: string;
+  disabled?:boolean;
   children: React.ReactNode;
 }
 
@@ -16,11 +17,11 @@ export const DropdownItem: React.FC<DropdownItemProps> = ({
   to,
   onClick,
   onItemClick,
-  baseClassName = "block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+  baseClassName = "block w-full text-left px-4 py-2 text-sm ",
   className = "",
-  children,
+  children,disabled
 }) => {
-  const combinedClasses = `${baseClassName} ${className}`.trim();
+  const combinedClasses = `${baseClassName} ${className} ${disabled?"text-gray-400":"text-gray-700 hover:bg-gray-100  hover:text-gray-900"}`.trim();
 
   const handleClick = (event: React.MouseEvent) => {
     if (tag === "button") {
@@ -39,7 +40,7 @@ export const DropdownItem: React.FC<DropdownItemProps> = ({
   }
 
   return (
-    <button onClick={handleClick} className={combinedClasses}>
+    <button onClick={handleClick} className={combinedClasses} disabled={disabled}>
       {children}
     </button>
   );

@@ -11,6 +11,8 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Clients from "./pages/Clients";
 import ClientForm from "./pages/Clients/ClientForm";
+import MailTo from "./pages/Clients/Mailto";
+import Docs from "./pages/Clients/Docs";
 
 export default function App() {
   return (
@@ -25,6 +27,8 @@ export default function App() {
             {/* <Route index path="/" element={<Home />} /> */}
             <Route index path="/clients" element={<Clients />} />
             <Route index path="/manage/client" element={<ClientForm />} />
+            <Route index path="/mail-to" element={<MailTo />} />
+            <Route index path="/files" element={<Docs />} />
 
             {/* Ui Elements */}
             <Route path="/alerts" element={<Alerts />} />

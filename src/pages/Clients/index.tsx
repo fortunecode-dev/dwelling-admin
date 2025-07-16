@@ -163,6 +163,21 @@ export default function Clients() {
                          Verificar cliente
                           </DropdownItem>
                         </li>
+                         <li>
+                          <DropdownItem
+                            onItemClick={() => {
+                              navigate(`/mail-to?mail=${order.email}`)
+                              closeDropdown();
+                            }}
+                            disabled={!order.email}
+                            
+                            
+                            tag="button"
+                            className="w-full flex text-left px-4 py-2 rounded-lg text-sm dark:text-gray-300 dark:hover:bg-white/10"
+                          >
+                            Send a E-Mail
+                          </DropdownItem>
+                        </li>
                         <li>
                           <DropdownItem
                             onItemClick={() => {
@@ -171,7 +186,7 @@ export default function Clients() {
                               closeDropdown();
                             }}
                             tag="button"
-                            className="w-full flex text-left px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
+                            className="w-full flex text-left px-4 py-2 rounded-lg text-sm dark:text-gray-300 dark:hover:bg-white/10"
                           >
                              Download Client Summary
                           </DropdownItem>
@@ -183,12 +198,14 @@ export default function Clients() {
                               closeDropdown();
                             }}
                             
+                            
                             tag="button"
-                            className="w-full flex text-left px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
+                            className="w-full flex text-left px-4 py-2 rounded-lg text-sm dark:text-gray-300 dark:hover:bg-white/10"
                           >
                             Editar
                           </DropdownItem>
                         </li>
+
                         
                         <li>
                           <DropdownItem
