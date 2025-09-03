@@ -29,7 +29,7 @@ type FileTreeProps = {
   onShare: (path: string, type: "file" | "folder") => void;
   onMove: (from: string, toFolder: string) => void;
   onDelete: (path: string) => void;
-  getZipName: (name:string,path: string, type: "file" | "folder",father:string) => string;
+  getZipName: (name:string,path: string, type: "file" | "folder",father?:string) => string;
   enableMove?: boolean;
   father?:string
 };
@@ -129,7 +129,7 @@ const FileTreeItem: React.FC<{
   onShare: (path: string, type: "file" | "folder") => void;
   onDelete: (path: string) => void;
   onMove: (from: string, to: string) => void;
-  getZipName: (name:string,path: string, type: "file" | "folder") => string;
+  getZipName: (name:string,path: string, type: "file" | "folder",father?:string) => string;
   overId?: string | null;
   activeId?: string | null;
   father?:string

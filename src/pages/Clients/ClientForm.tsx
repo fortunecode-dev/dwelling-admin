@@ -7,6 +7,7 @@ import Checkbox from "../../components/form/input/Checkbox";
 import { getProspect, postProspect, updateProspect } from "../../services/prospects.service";
 import { useSearchParams } from "react-router";
 import FileTree from "./components/FileTree";
+import { getZipName } from "../../utils/prospects-parsing";
 const formMeta = [
     {
         name: "propertyAddress",
@@ -434,6 +435,7 @@ export default function ClientForm() {
                                     body: JSON.stringify({ path, type: type.toUpperCase(), email }),
                                 }).then(() => alert("Compartido ✔️"));
                         }}
+                        getZipName={getZipName}
                     />
                 </div>
             )}

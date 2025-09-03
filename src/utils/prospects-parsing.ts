@@ -113,7 +113,7 @@ export function getProspectFolderNamesMap(prospects: ProspectInput[]): Record<st
   return result;
 }
 
-export function getZipName(name:string,path: string, type: "file" | "folder",father:string) {
+export function getZipName(name:string,path: string, type: "file" | "folder",father?:string) {
   console.log(name,path,type)
   const parts = path.split("/");
   if (type === "file") {
