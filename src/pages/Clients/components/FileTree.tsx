@@ -25,11 +25,13 @@ export type TreeNode = {
 type FileTreeProps = {
   nodes: TreeNode[];
   onRename: (oldPath: string, newPath: string) => void;
-  onDownloadZip: (path: string) => void;
+  onDownloadZip: (path: string, zipName: string) => void;
   onShare: (path: string, type: "file" | "folder") => void;
   onMove: (from: string, toFolder: string) => void;
   onDelete: (path: string) => void;
+  getZipName: (name:string,path: string, type: "file" | "folder",father:string) => string;
   enableMove?: boolean;
+  father?:string
 };
 
 const FileTree: React.FC<FileTreeProps> = ({
@@ -39,6 +41,7 @@ const FileTree: React.FC<FileTreeProps> = ({
   onShare,
   onMove,
   onDelete,
+  getZipName,
   enableMove = true
 }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -56,7 +59,7 @@ const FileTree: React.FC<FileTreeProps> = ({
   };
 
   const content = (
-    <div className="text-sm text-gray-800">
+    <div className="text-base text-gray-800">
       {nodes.map((node) => (
         <FileTreeItem
           key={node.path}
@@ -69,6 +72,7 @@ const FileTree: React.FC<FileTreeProps> = ({
           onMove={onMove}
           overId={enableMove ? overId : null}
           activeId={activeId}
+          getZipName={getZipName}
         />
       ))}
     </div>
@@ -121,12 +125,14 @@ const FileTreeItem: React.FC<{
   node: TreeNode;
   level: number;
   onRename: (oldPath: string, newPath: string) => void;
-  onDownloadZip: (path: string) => void;
+  onDownloadZip: (path: string, zipName: string) => void;
   onShare: (path: string, type: "file" | "folder") => void;
   onDelete: (path: string) => void;
   onMove: (from: string, to: string) => void;
+  getZipName: (name:string,path: string, type: "file" | "folder") => string;
   overId?: string | null;
   activeId?: string | null;
+  father?:string
 }> = ({
   node,
   level,
@@ -135,23 +141,22 @@ const FileTreeItem: React.FC<{
   onShare,
   onDelete,
   onMove,
+  getZipName,
   overId,
-  activeId
+  father
 }) => {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(node.name);
 
-  const paddingLeft = `${level * 1.25}rem`;
+  const paddingLeft = `${level * 1.5}rem`;
 
   const { setNodeRef: setDragRef, attributes, listeners } = useDraggable({
     id: node.path,
     disabled: node.type !== "file"
   });
 
-  const { setNodeRef: setDropRef } = useDroppable({
-    id: node.path
-  });
+  const { setNodeRef: setDropRef } = useDroppable({ id: node.path });
 
   const handleRename = () => {
     if (name && name !== node.name) {
@@ -173,14 +178,14 @@ const FileTreeItem: React.FC<{
       style={{ paddingLeft }}
       className={`mb-1 ${isTarget ? "bg-blue-50 border-l-4 border-blue-400" : ""}`}
     >
-      <div className="flex items-center gap-2 group">
+      <div className="flex items-center gap-3 group">
         {node.type === "folder" ? (
           <FolderIcon
-            className="w-4 h-4 text-gray-500"
+            className="w-5 h-5 text-gray-500"
             onClick={() => setOpen((prev) => !prev)}
           />
         ) : (
-          <FileIcon className="w-4 h-4 text-gray-500" />
+          <FileIcon className="w-5 h-5 text-gray-500" />
         )}
 
         {editing ? (
@@ -190,11 +195,11 @@ const FileTreeItem: React.FC<{
             onBlur={handleRename}
             onKeyDown={(e) => e.key === "Enter" && handleRename()}
             autoFocus
-            className="text-sm border border-gray-300 rounded px-1 w-48"
+            className="text-base border border-gray-300 rounded px-2 py-1 w-full max-w-xs"
           />
         ) : (
           <span
-            className="text-gray-700 truncate w-48 cursor-pointer"
+            className="text-gray-700 truncate w-full max-w-xs cursor-pointer"
             onDoubleClick={() => setEditing(true)}
             {...(node.type === "file" ? attributes : {})}
             {...(node.type === "file" ? listeners : {})}
@@ -203,24 +208,25 @@ const FileTreeItem: React.FC<{
           </span>
         )}
 
-        <div className="flex gap-1 ml-auto opacity-0 group-hover:opacity-100 transition">
-          {node.type === "folder" && (
-            <button onClick={() => onDownloadZip(node.path)} title="Descargar ZIP">
-              <DownloadIcon className="w-4 h-4 text-indigo-600 hover:text-indigo-800" />
-            </button>
-          )}
+        <div className="flex gap-2 ml-auto opacity-0 group-hover:opacity-100 transition">
+          <button
+            onClick={() => onDownloadZip(node.path, getZipName(node.name,node.path, node.type,father))}
+            title="Descargar"
+          >
+            <DownloadIcon className="w-5 h-5 text-indigo-600 hover:text-indigo-800" />
+          </button>
 
           <button onClick={() => onShare(node.path, node.type)} title="Compartir">
-            <ShareIcon className="w-4 h-4 text-blue-600 hover:text-blue-800" />
+            <ShareIcon className="w-5 h-5 text-blue-600 hover:text-blue-800" />
           </button>
 
           <button onClick={() => setEditing(true)} title="Renombrar">
-            <PencilIcon className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+            <PencilIcon className="w-5 h-5 text-gray-500 hover:text-gray-700" />
           </button>
 
           {node.type === "file" && (
             <button onClick={() => onDelete(node.path)} title="Eliminar">
-                 <TrashBinIcon className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+              <TrashBinIcon className="w-5 h-5 text-gray-500 hover:text-gray-700" />
             </button>
           )}
         </div>
@@ -230,6 +236,7 @@ const FileTreeItem: React.FC<{
         <div className="mt-1">
           {node.children.map((child) => (
             <FileTreeItem
+            father={father?father:node.path.split("/").length==1?node.name:undefined}
               key={child.path}
               node={child}
               level={level + 1}
@@ -238,8 +245,8 @@ const FileTreeItem: React.FC<{
               onShare={onShare}
               onDelete={onDelete}
               onMove={onMove}
+              getZipName={getZipName}
               overId={overId}
-              activeId={activeId}
             />
           ))}
         </div>

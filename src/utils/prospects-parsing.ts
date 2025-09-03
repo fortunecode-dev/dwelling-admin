@@ -78,3 +78,51 @@ export function generateProspectSummary(prospect: any): string {
     </html>
   `;
 }
+type ProspectInput = {
+  id: string;
+  address?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  createdAt: string;
+};
+
+export function getProspectFolderNamesMap(prospects: ProspectInput[]): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const prospect of prospects) {
+    const parts: string[] = [];
+
+    if (prospect.fullName && prospect.address) {
+      parts.push(`${prospect.fullName} | ${prospect.address}`);
+    } else if (prospect.fullName && prospect.email) {
+      parts.push(`${prospect.fullName} | ${prospect.email}`);
+    } else if (prospect.email && prospect.createdAt) {
+      parts.push(`${prospect.email} | ${prospect.createdAt.split("T")[0]}`);
+    } else if (prospect.fullName) {
+      parts.push(prospect.fullName);
+    } else if (prospect.email) {
+      parts.push(prospect.email);
+    } else {
+      parts.push(prospect.createdAt.split("T")[0]); // fallback mínimo
+    }
+
+    result[prospect.id] = parts.join("");
+  }
+
+  return result;
+}
+
+export function getZipName(name:string,path: string, type: "file" | "folder",father:string) {
+  console.log(name,path,type)
+  const parts = path.split("/");
+  if (type === "file") {
+    const filename = parts[parts.length - 1];
+    return `${father} - ${filename.replace(/\//g, "-")}`;
+  } else if (parts.length === 1) {
+    return `${name}-all`;
+  } else {
+    return `${father} (${parts.slice(1).join("/")})`;
+  }
+}
+

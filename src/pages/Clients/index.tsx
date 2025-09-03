@@ -1,236 +1,337 @@
 import { useEffect, useMemo, useState } from "react";
-import { Dropdown } from "../../components/ui/dropdown/Dropdown";
-import { DropdownItem } from "../../components/ui/dropdown/DropdownItem";
-import { Table, TableHeader, TableRow, TableCell, TableBody } from "../../components/ui/table";
-import { EllipsisVerticalIcon,PlusIcon } from "@heroicons/react/24/outline";
-import { deleteProspect, getActiveProspects } from "../../services/prospects.service";
-import Button from "../../components/ui/button/Button";
 import { useNavigate } from "react-router";
-import { exportProspectPDF } from "../../libs/exportProspectToPdf";
+import {
+  MaterialReactTable,
+  type MRT_ColumnDef,
+  useMaterialReactTable,
+} from "material-react-table";
+import { MRT_Localization_ES } from "material-react-table/locales/es";
+import {
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+} from "@mui/material";
 
-export default function Clients() {
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [prospects, setProspects] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const navigate=useNavigate()
+import {
+  PlusIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  EnvelopeIcon,
+  DocumentArrowDownIcon,
+  CheckCircleIcon,
+  CheckIcon,
+} from "@heroicons/react/24/outline";
+
+import { deleteProspect, getActiveProspects } from "../../services/prospects.service";
+import { exportProspectPDF } from "../../libs/exportProspectToPdf";
+import Button from "../../components/ui/button/Button";
+
+/* ---------------------------------------------
+ * Tipo mínimo esperado desde tu backend
+ * ------------------------------------------- */
+type Prospect = {
+  id: string;
+  name?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  status?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+const showOrNotSet = (v?: unknown) =>
+  !v || String(v).trim() === "" ? "Not set" : String(v);
+
+/* ---------------------------------------------
+ * Tema MUI: SOLO MODO CLARO (minimalista)
+ * ------------------------------------------- */
+const lightTheme = createTheme({
+  palette: {
+    mode: "light",
+    primary: { main: "#3b82f6" }, // azul suave
+    background: {
+      default: "#f9fafb", // gris muy claro
+      paper: "#ffffff",
+    },
+    text: {
+      primary: "#111827",
+      secondary: "rgba(17,24,39,0.65)",
+    },
+    divider: "rgba(17,24,39,0.08)",
+  },
+  typography: {
+    fontFamily: "Inter, Roboto, system-ui, -apple-system, Segoe UI, Arial, sans-serif",
+    fontSize: 14,
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          boxShadow: "none",
+          border: "1px solid rgba(17,24,39,0.06)",
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          borderBottom: "1px solid rgba(17,24,39,0.06)",
+        },
+        head: {
+          fontWeight: 700,
+          color: "rgba(17,24,39,0.65)",
+          backgroundColor: "rgba(59,130,246,0.06)", // similar a bg-blue-100/20
+        },
+      },
+    },
+    MuiToolbar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#fff",
+        },
+      },
+    },
+  },
+});
+
+export default function ClientsMRT() {
+  const navigate = useNavigate();
+
+  // Estado remoto
+  const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Carga inicial
   useEffect(() => {
-    loadClients();
+    (async () => {
+      setIsLoading(true);
+      try {
+        const list = await getActiveProspects();
+        setProspects(list ?? []);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
-  const loadClients = async () => {
-    const prospects = await getActiveProspects();
-    setProspects(prospects);
+  // Columnas
+  const columns = useMemo<MRT_ColumnDef<Prospect>[]>(() => [
+    {
+      header: "Name",
+      id: "name",
+      accessorFn: (row) =>
+        `${row?.name ?? ""} ${row?.lastName ?? ""}`.trim() || "Not set",
+      size: 220,
+      minSize: 160,
+    },
+    {
+      header: "Email",
+      id: "email",
+      accessorFn: (row) => showOrNotSet(row.email),
+      size: 240,
+      minSize: 180,
+    },
+    {
+      header: "Phone",
+      id: "phone",
+      accessorFn: (row) => showOrNotSet(row.phone),
+      size: 160,
+      minSize: 120,
+    },
+    {
+      header: "Address",
+      id: "address",
+      accessorFn: (row) => showOrNotSet(row.address),
+      size: 260,
+      minSize: 180,
+    },
+    {
+      header: "Status",
+      id: "status",
+      accessorFn: (row) => showOrNotSet(row.status),
+      size: 140,
+      minSize: 120,
+    },
+  ], []);
+
+  // Recarga tras acciones
+  const reload = async () => {
+    setIsLoading(true);
+    try {
+      const list = await getActiveProspects();
+      setProspects(list ?? []);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const toggleDropdown = (id: string) => {
-    setOpenDropdownId(prev => (prev === id ? null : id));
-  };
+  // Instancia MRT
+  const table = useMaterialReactTable<Prospect>({
+    columns,
+    data: prospects,
+    localization: MRT_Localization_ES,
+    // Herramientas de gestión
+    enableSorting: true,
+    enableColumnFilters: true,
+    enableGlobalFilter: true,       // buscador nativo en toolbar
+    enablePagination: true,
+    enableRowActions: true,
+    enableRowSelection: true,
+    enableColumnResizing: true,
+    enableColumnOrdering: true,
+    enableColumnPinning: true,
+    enableHiding: true,
+    enableStickyHeader: true,
+    enableDensityToggle: true,
+    enableFullScreenToggle: false,
 
-  const closeDropdown = () => setOpenDropdownId(null);
-
-  const handleSearch = (value: string) => setSearchTerm(value.toLowerCase());
-
-  const filteredData = useMemo(() => {
-    return prospects?.filter((item) => {
-      const values = Object.values(item)
-        .concat(Object.values(item.metadata || {}))
-        .join(" ")
-        .toLowerCase();
-      return values?.includes(searchTerm);
-    });
-  }, [searchTerm, prospects]);
-
-
- 
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-3">
-        <input
-          type="text"
-          placeholder="Search..."
-          onChange={(e) => handleSearch(e.target.value)}
-          className="border px-3 py-2 rounded w-1/2"
-        />
+    // Toolbar: botón + acciones masivas
+    renderTopToolbarCustomActions: ({ table }) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Button
-              size="sm"
-              variant="outline"
-              onClick={()=>navigate("/manage/client")}
-              startIcon={< PlusIcon className="size-5" />}
-            >
-              New Prospect
-            </Button>
+          size="sm"
+          variant="outline"
+          onClick={() => navigate("/manage/client")}
+          startIcon={<PlusIcon className="size-5" />}
+        >
+          New Prospect
+        </Button>
+        <BulkActions table={table} onReload={reload} />
       </div>
-       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-      <div className="max-w-full overflow-x-auto">
-        <Table>
-          {/* Table Header */}
-          <TableHeader className="border-b border-gray-100 bg-blue-light-50 dark:border-white/[0.05] ">
-            <TableRow>
-              <TableCell
-                isHeader
-                className="px-5 py-3 text-gray-500 text-start text-theme-xs dark:text-gray-400 font-bold"
-              >
-                Name
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-bold text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Email
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-bold text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Phone
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-bold text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Address
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-bold text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Status
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-bold text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                {""}
-              </TableCell>
-            </TableRow>
-          </TableHeader>
+    ),
 
-          {/* Table Body */}
-          <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {filteredData?.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {!order.name && !order.lastName ?  "Not set" :`${order.name} ${order.lastName??""}`}
-                </TableCell>
-                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {order.email || "Not set"}
-                </TableCell>
-                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {order.phone || "Not set"}
-                </TableCell>
-                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {order.address || "Not set"}
-                </TableCell>
-                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {order.status || "Not set"}
-                </TableCell>
-                <TableCell className="px-4 py-3 text-end relative">
-                  <button
-                    onClick={() => toggleDropdown(order.id)}
-                    className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  >
-                    <EllipsisVerticalIcon className="h-5 w-5" />
-                  </button>
+    // Acciones por fila (Heroicons)
+    renderRowActionMenuItems: ({ row }) => {
+      const p = row.original;
+      return [
+        <button
+          key="attended"
+          onClick={() => console.log("Marcar como atendido", p.id)}
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+        >
+          <CheckCircleIcon className="h-5 w-5" /> Marcar como atendido
+        </button>,
+        <button
+          key="verify"
+          onClick={() => console.log("Verificar cliente", p.id)}
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+        >
+          <CheckIcon className="h-5 w-5" /> Verificar cliente
+        </button>,
+        <button
+          key="email"
+          disabled={!p.email}
+          onClick={() => {
+            if (!p.email) return;
+            navigate(`/mail-to?mail=${encodeURIComponent(p.email)}`);
+          }}
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100 disabled:opacity-50"
+        >
+          <EnvelopeIcon className="h-5 w-5" /> Send an E-Mail
+        </button>,
+        <button
+          key="download"
+          onClick={() => exportProspectPDF(p)}
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+        >
+          <DocumentArrowDownIcon className="h-5 w-5" /> Download Client Summary
+        </button>,
+        <button
+          key="edit"
+          onClick={() => navigate(`/manage/client?id=${p.id}`)}
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+        >
+          <PencilSquareIcon className="h-5 w-5" /> Editar
+        </button>,
+        <button
+          key="archive"
+          onClick={async () => {
+            await deleteProspect(p.id);
+            await reload();
+          }}
+          className="flex w-full items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50"
+        >
+          <TrashIcon className="h-5 w-5" /> Archivar
+        </button>,
+      ];
+    },
 
-                  {openDropdownId === order.id && (
-                    <Dropdown
-                      isOpen={true}
-                      onClose={closeDropdown}
-                      className="fixed right-0 z-10 mt-2 w-48 rounded-xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-800 dark:bg-gray-900"
-                    >
-                      <ul className="flex flex-col gap-1">
-                        <li>
-                          <DropdownItem
-                            onItemClick={() => {
-                              console.log("Marcar como atendido", order.id);
-                              closeDropdown();
-                            }}
-                            tag="button"
-                            className="w-full text-left px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
-                          >
-                          Marcar como atendido
-                          </DropdownItem>
-                        </li>
-                         <li>
-                          <DropdownItem
-                            onItemClick={() => {
-                              console.log("Marcar como atendido", order.id);
-                              closeDropdown();
-                            }}
-                            tag="button"
-                            className="w-full text-left px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
-                          >
-                         Verificar cliente
-                          </DropdownItem>
-                        </li>
-                         <li>
-                          <DropdownItem
-                            onItemClick={() => {
-                              navigate(`/mail-to?mail=${order.email}`)
-                              closeDropdown();
-                            }}
-                            disabled={!order.email}
-                            
-                            
-                            tag="button"
-                            className="w-full flex text-left px-4 py-2 rounded-lg text-sm dark:text-gray-300 dark:hover:bg-white/10"
-                          >
-                            Send a E-Mail
-                          </DropdownItem>
-                        </li>
-                        <li>
-                          <DropdownItem
-                            onItemClick={() => {
-                              console.log("Marcar como atendido", order.id);
-                              exportProspectPDF(order)
-                              closeDropdown();
-                            }}
-                            tag="button"
-                            className="w-full flex text-left px-4 py-2 rounded-lg text-sm dark:text-gray-300 dark:hover:bg-white/10"
-                          >
-                             Download Client Summary
-                          </DropdownItem>
-                        </li>
-                         <li>
-                          <DropdownItem
-                            onItemClick={() => {
-                              navigate(`/manage/client?id=${order.id}`)
-                              closeDropdown();
-                            }}
-                            
-                            
-                            tag="button"
-                            className="w-full flex text-left px-4 py-2 rounded-lg text-sm dark:text-gray-300 dark:hover:bg-white/10"
-                          >
-                            Editar
-                          </DropdownItem>
-                        </li>
+    // Estado inicial
+    initialState: {
+      density: "comfortable",
+      pagination: { pageIndex: 0, pageSize: 10 },
+      showGlobalFilter: true, // mostrar busqueda nativa desde el inicio
+      columnPinning: { left: ["mrt-row-select"] },
+    },
 
-                        
-                        <li>
-                          <DropdownItem
-                            onItemClick={() => {
-                              deleteProspect(order.id).then(()=>loadClients())
-                              console.log("Eliminar", order.id);
-                              closeDropdown();
-                            }}
-                            tag="button"
-                            className="w-full text-left px-4 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          >
-                           Archivar
-                          </DropdownItem>
-                        </li>
-                      </ul>
-                    </Dropdown>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+    // Loading remoto
+    state: { isLoading },
+
+    // Estilos finos
+    muiTableHeadCellProps: {
+      sx: {
+        fontWeight: 700,
+        color: "text.secondary",
+        bgcolor: "rgba(59,130,246,0.06)",
+      },
+    },
+    muiTableBodyProps: {
+      sx: { "& tr:not(:last-of-type) td": { borderBottomColor: "divider" } },
+    },
+  });
+
+  return (
+    <ThemeProvider theme={lightTheme}>
+      <CssBaseline />
+        <MaterialReactTable table={table} />
+    </ThemeProvider>
+  );
+}
+
+/* ---------------------------------------------
+ * Acciones masivas (selección de filas)
+ * ------------------------------------------- */
+function BulkActions({
+  table,
+  onReload,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  table: any;
+  onReload: () => Promise<void>;
+}) {
+  const selectedRows = table.getSelectedRowModel().rows ?? [];
+  const disabled = selectedRows.length === 0;
+
+  const selectedProspects: Prospect[] = selectedRows.map((r: any) => r.original);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={async () => {
+          await Promise.all(selectedProspects.map((p) => exportProspectPDF(p)));
+        }}
+        startIcon={<DocumentArrowDownIcon className="size-5" />}
+      >
+        Exportar PDF (selección)
+      </Button>
+
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={async () => {
+          await Promise.all(selectedProspects.map((p) => deleteProspect(p.id)));
+          await onReload();
+        }}
+        startIcon={<TrashIcon className="size-5" />}
+      >
+        Archivar (selección)
+      </Button>
     </div>
-    </div>
-   
   );
 }
