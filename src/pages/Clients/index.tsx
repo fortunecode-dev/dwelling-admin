@@ -317,7 +317,7 @@ function BulkActions({
         }}
         startIcon={<DocumentArrowDownIcon className="size-5" />}
       >
-        Exportar PDF (selección)
+        Exportar PDF
       </Button>
 
       <Button
@@ -330,7 +330,7 @@ function BulkActions({
         }}
         startIcon={<TrashIcon className="size-5" />}
       >
-        Archivar (selección)
+        Archivar
       </Button>
     </div>
   );

@@ -47,12 +47,8 @@ export default function Docs() {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <PageMeta title="Send Mail" description="Contact with a client" />
-      <PageBreadcrumb pageTitle="Client Form" />
-
-      <div className="max-w-xl mx-auto bg-white p-6 rounded shadow mt-8">
-        <h2 className="text-2xl font-bold mb-4">Archivos</h2>
-
+      <PageMeta title="Docs" description="Documents management" />
+      <PageBreadcrumb pageTitle="Client's Documentation" />
         <FileTree
           nodes={tree}
           onDelete={(path) => {
@@ -92,7 +88,6 @@ export default function Docs() {
           }}
           getZipName={getZipName}
         />
-      </div>
     </div>
   );
 }
