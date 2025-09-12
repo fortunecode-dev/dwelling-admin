@@ -6,7 +6,6 @@ import {
   PencilIcon,
   TrashBinIcon
 } from "../../../icons";
-import { ShareIcon } from "@heroicons/react/24/outline";
 import {
   DndContext,
   closestCenter,
