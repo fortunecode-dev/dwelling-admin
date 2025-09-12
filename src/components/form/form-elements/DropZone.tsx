@@ -1,20 +1,14 @@
 import { useDropzone } from "react-dropzone";
-import ComponentCard from "../../common/ComponentCard";
-import { useRef, useState } from "react";
 import Alert from "../../ui/alert/Alert";
 
-const DropzoneComponent: React.FC<any> = ({data,mandatory,error,afterSubmit}:{data:any,mandatory:string,error:string,afterSubmit:any}) => {
-  const [recording, setRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
+const DropzoneComponent: React.FC<any> = ({data,mandatory,error,afterSubmit,setBusy}:{setBusy:any,data:any,mandatory:string,error:string,afterSubmit:any}) => {
  const onDrop = (acceptedFiles: File[]) => {
   console.log("Archivos recibidos:", acceptedFiles);
   acceptedFiles.forEach(uploadFile);
 };
 
 const uploadFile = async (file: File) => {
+  setBusy(true)
   const formData = new FormData();
   formData.append("file", file);
   formData.append("type", file.type.startsWith("image") ? "image" : "video");
@@ -43,40 +37,6 @@ const uploadFile = async (file: File) => {
       "*": [],
     },
   });
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      const recorder = new MediaRecorder(stream);
-      setRecordedChunks([]);
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          setRecordedChunks((prev) => [...prev, e.data]);
-        }
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: "video/webm" });
-        const file = new File([blob], `recorded-${Date.now()}.webm`, { type: "video/webm" });
-        onDrop([file]); // Reutilizamos la lógica de subida
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
-        stream.getTracks().forEach((track) => track.stop());
-      };
-      setMediaRecorder(recorder);
-      recorder.start();
-      setRecording(true);
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) {
-      console.error("No se pudo acceder a la cámara:", err);
-      alert("Permiso denegado o error al acceder a la cámara.");
-    }
-  };
-
-  const stopRecording = () => {
-    mediaRecorder?.stop();
-    setRecording(false);
-  };
 
   return (
     
