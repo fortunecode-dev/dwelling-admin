@@ -44,8 +44,8 @@ export function generateProspectSummary(prospect: any): string {
       `<tr><td><strong>${k.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</strong></td><td>${v}</td></tr>`
     );
 
-  const extras = Object.entries(extra).map(([, v]:[k:any,v:any]) =>
-    `<tr><td><strong>${v.context.replace(/_/g, " ").replace(/\b\w/g, (l:any) => l.toUpperCase())}</strong></td><td>${v.value}</td></tr>`
+  const extras = Object.entries(extra).map(([, v]: [k: any, v: any]) =>
+    `<tr><td><strong>${v.context.replace(/_/g, " ").replace(/\b\w/g, (l: any) => l.toUpperCase())}</strong></td><td>${v.value}</td></tr>`
   );
 
   const objetivos = Array.isArray(meta.objective)
@@ -81,48 +81,46 @@ export function generateProspectSummary(prospect: any): string {
 type ProspectInput = {
   id: string;
   address?: string;
-  fullName?: string;
   email?: string;
   phone?: string;
   createdAt: string;
+  name: string,
+  lastName: string,
+  city: string,
+  state: string,
 };
 
 export function getProspectFolderNamesMap(prospects: ProspectInput[]): Record<string, string> {
   const result: Record<string, string> = {};
 
   for (const prospect of prospects) {
-    const parts: string[] = [];
-
-    if (prospect.fullName && prospect.address) {
-      parts.push(`${prospect.fullName} | ${prospect.address}`);
-    } else if (prospect.fullName && prospect.email) {
-      parts.push(`${prospect.fullName} | ${prospect.email}`);
-    } else if (prospect.email && prospect.createdAt) {
-      parts.push(`${prospect.email} | ${prospect.createdAt.split("T")[0]}`);
-    } else if (prospect.fullName) {
-      parts.push(prospect.fullName);
-    } else if (prospect.email) {
-      parts.push(prospect.email);
-    } else {
-      parts.push(prospect.createdAt.split("T")[0]); // fallback mínimo
-    }
-
-    result[prospect.id] = parts.join("");
+    result[prospect.id] = prospectNameFallback(prospect)
   }
 
   return result;
 }
 
-export function getZipName(name:string,path: string, type: "file" | "folder",father?:string) {
-  console.log(name,path,type)
+export function getZipName(name: string, path: string, type: "file" | "folder", ) {
+  console.log(name, path, type)
   const parts = path.split("/");
   if (type === "file") {
     const filename = parts[parts.length - 1];
-    return `${father} - ${filename.replace(/\//g, "-")}`;
+    return `${filename.replace(/\//g, "-")}`;
   } else if (parts.length === 1) {
     return `${name}-all`;
   } else {
-    return `${father} (${parts.slice(1).join("/")})`;
+    return `(${parts.slice(1).join("/")})`;
   }
 }
 
+export function prospectNameFallback(prospect: ProspectInput) {
+  if (prospect.lastName && prospect.name && (prospect.address || prospect.city || prospect.state)) {
+    return `${prospect.lastName}, ${prospect.name} | ${prospect.state ?? ""}${prospect.city ? `, ${prospect.city}` : ""}${prospect.state ? `, ${prospect.state}` : ""}`
+  } else if (prospect.lastName && prospect.name) {
+    return `${prospect.lastName}, ${prospect.name}`
+  } else if (prospect.email || prospect.phone) {
+    return `${prospect.email ?? ""}${prospect.email && prospect.phone ? " | " : ""}${prospect.phone ?? ""}`
+  } else {
+    return prospect.createdAt.split("T")[0]; // fallback mínimo
+  }
+}

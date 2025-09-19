@@ -30,7 +30,15 @@ type FileTreeProps = {
   onDelete: (path: string) => void;
   getZipName: (name:string,path: string, type: "file" | "folder",father?:string) => string;
   enableMove?: boolean;
-  father?:string
+  father?: string;
+
+  /**
+   * NUEVO: define si los folders de nivel 0 (padres) inician abiertos.
+   * true  => padres desplegados al cargar
+   * false => padres plegados al cargar
+   * (por defecto true, para conservar el comportamiento previo)
+   */
+  parentsInitiallyOpen?: boolean;
 };
 
 const FileTree: React.FC<FileTreeProps> = ({
@@ -41,7 +49,8 @@ const FileTree: React.FC<FileTreeProps> = ({
   onMove,
   onDelete,
   getZipName,
-  enableMove = true
+  enableMove = true,
+  parentsInitiallyOpen = true,
 }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -72,6 +81,11 @@ const FileTree: React.FC<FileTreeProps> = ({
           overId={enableMove ? overId : null}
           activeId={activeId}
           getZipName={getZipName}
+          /**
+           * Pasamos la preferencia para nivel 0 (padres).
+           * Los hijos mantienen open=true por defecto (comportamiento actual).
+           */
+          parentsInitiallyOpen={parentsInitiallyOpen}
         />
       ))}
     </div>
@@ -131,7 +145,10 @@ const FileTreeItem: React.FC<{
   getZipName: (name:string,path: string, type: "file" | "folder",father?:string) => string;
   overId?: string | null;
   activeId?: string | null;
-  father?:string
+  father?: string;
+
+  /** NUEVO: preferencia de apertura inicial para padres (nivel 0) */
+  parentsInitiallyOpen?: boolean;
 }> = ({
   node,
   level,
@@ -142,9 +159,21 @@ const FileTreeItem: React.FC<{
   onMove,
   getZipName,
   overId,
-  father
+  father,
+  parentsInitiallyOpen = true,
 }) => {
-  const [open, setOpen] = useState(true);
+  /**
+   * Inicializa el estado "open" en función de:
+   * - Si es folder
+   * - Si es nivel 0 (padre), usa la prop "parentsInitiallyOpen"
+   * - Si es hijo, conserva el comportamiento existente: open=true
+   */
+  const initialOpen =
+    node.type === "folder"
+      ? (level === 0 ? parentsInitiallyOpen : true)
+      : false;
+
+  const [open, setOpen] = useState<boolean>(initialOpen);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(node.name);
 
@@ -159,7 +188,7 @@ const FileTreeItem: React.FC<{
 
   const handleRename = () => {
     if (name && name !== node.name) {
-      let newName = node.path.split("/");
+      const newName = node.path.split("/");
       newName[newName.length - 1] = name;
       onRename(node.path, newName.join("/"));
     }
@@ -180,7 +209,7 @@ const FileTreeItem: React.FC<{
       <div className="flex items-center gap-3 group">
         {node.type === "folder" ? (
           <FolderIcon
-            className="w-5 h-5 text-gray-500"
+            className="w-5 h-5 text-gray-500 cursor-pointer"
             onClick={() => setOpen((prev) => !prev)}
           />
         ) : (
@@ -208,16 +237,12 @@ const FileTreeItem: React.FC<{
         )}
 
         <div className="flex gap-2 ml-auto">
-          <button
+          {level!=0&&<button
             onClick={() => onDownloadZip(node.path, getZipName(node.name,node.path, node.type,father))}
             title="Descargar"
           >
-            <DownloadIcon className="w-5 h-5 text-indigo-600 hover:text-indigo-800" />
-          </button>
-
-          {/* <button onClick={() => onShare(node.path, node.type)} title="Compartir">
-            <ShareIcon className="w-5 h-5 text-blue-600 hover:text-blue-800" />
-          </button> */}
+            <DownloadIcon className="w-5 h-5 text-indigo-600 hover:text-indigo-800 disabled:bg-gray-dark" />
+          </button>}
 
           <button onClick={() => setEditing(true)} title="Renombrar">
             <PencilIcon className="w-5 h-5 text-gray-500 hover:text-gray-700" />
@@ -235,7 +260,7 @@ const FileTreeItem: React.FC<{
         <div className="mt-1">
           {node.children.map((child) => (
             <FileTreeItem
-            father={father?father:node.path.split("/").length==1?node.name:undefined}
+              father={father ? father : node.path.split("/").length == 1 ? node.name : ""}
               key={child.path}
               node={child}
               level={level + 1}
@@ -246,6 +271,8 @@ const FileTreeItem: React.FC<{
               onMove={onMove}
               getZipName={getZipName}
               overId={overId}
+              /** Propaga la preferencia (solo afecta a nivel 0 en este componente) */
+              parentsInitiallyOpen={parentsInitiallyOpen}
             />
           ))}
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   MaterialReactTable,
@@ -10,6 +10,11 @@ import {
   ThemeProvider,
   createTheme,
   CssBaseline,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
 } from "@mui/material";
 
 import {
@@ -20,11 +25,15 @@ import {
   DocumentArrowDownIcon,
   CheckCircleIcon,
   CheckIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 
 import { deleteProspect, getActiveProspects } from "../../services/prospects.service";
 import { exportProspectPDF } from "../../libs/exportProspectToPdf";
 import Button from "../../components/ui/button/Button";
+import FileTree from "./components/FileTree";
+import { getZipName, prospectNameFallback } from "../../utils/prospects-parsing";
+import { DownloadIcon } from "../../icons";
 
 /* ---------------------------------------------
  * Tipo mínimo esperado desde tu backend
@@ -51,7 +60,7 @@ const lightTheme = createTheme({
     mode: "light",
     primary: { main: "#3b82f6" }, // azul suave
     background: {
-      default: "#f9fafb", // gris muy claro
+      default: "#f9fafb",
       paper: "#ffffff",
     },
     text: {
@@ -82,7 +91,7 @@ const lightTheme = createTheme({
         head: {
           fontWeight: 700,
           color: "rgba(17,24,39,0.65)",
-          backgroundColor: "rgba(59,130,246,0.06)", // similar a bg-blue-100/20
+          backgroundColor: "rgba(59,130,246,0.06)",
         },
       },
     },
@@ -96,12 +105,105 @@ const lightTheme = createTheme({
   },
 });
 
+/* ---------------------------------------------
+ * Utilidades locales
+ * ------------------------------------------- */
+
+/** Descarga un blob como archivo */
+async function downloadBlobAsFile(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Descarga resúmenes de múltiples prospectos.
+ * Implementación por defecto: genera PDF individual por prospecto.
+ * Si tienes endpoint que devuelve un ZIP con todos, cámbialo aquí.
+ */
+async function downloadSummaries(selected: Prospect[]) {
+  // Opción A (rápida): PDF por cada prospecto (usa tu exportador actual).
+  for (const p of selected) {
+    await exportProspectPDF(p);
+  }
+
+  // Opción B (recomendada si ya existe en tu backend):
+  // const ids = selected.map((p) => p.id);
+  // const res = await fetch(`/api/prospects/summary-zip`, {
+  //   method: "POST",
+  //   headers: { "Content-Type": "application/json" },
+  //   body: JSON.stringify({ ids }),
+  // });
+  // if (!res.ok) throw new Error("No se pudo generar el ZIP de resúmenes");
+  // const blob = await res.blob();
+  // await downloadBlobAsFile(blob, `prospect-summaries_${new Date().toISOString().slice(0,10)}.zip`);
+}
+
+/**
+ * Descarga resúmenes + archivos adjuntos de múltiples prospectos.
+ * Implementación de ejemplo llamando a un endpoint que genere el ZIP.
+ */
+async function downloadSummariesWithFiles(selected: Prospect[]) {
+  // TODO: Conectar a tu backend real.
+  // Endpoint sugerido: POST /api/prospects/summary-with-files-zip { ids: string[] }
+  const ids = selected.map((p) => p.id);
+  const res = await fetch(`/api/prospects/summary-with-files-zip`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) {
+    // Fallback: si no existe endpoint, al menos generar PDFs individuales.
+    for (const p of selected) {
+      await exportProspectPDF(p);
+    }
+    return;
+  }
+  const blob = await res.blob();
+  await downloadBlobAsFile(
+    blob,
+    `prospect-summaries-with-files_${new Date().toISOString().slice(0, 10)}.zip`
+  );
+}
+
 export default function ClientsMRT() {
   const navigate = useNavigate();
 
   // Estado remoto
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Estado modal "Ver archivos"
+  const [filesModalOpen, setFilesModalOpen] = useState(false);
+  const [filesModalLoading, setFilesModalLoading] = useState(false);
+  const [tree, setTree] = useState<any[]>([]);
+  const [prospectId, setProspectId] = useState<null | string>(null);
+  const [filesModalProspect, setFilesModalProspect] = useState<Prospect>();
+  const refreshTree = useCallback(
+    async (id = "") => {
+      try {
+        if (!id && !prospectId) return;
+        setIsLoading(true);
+        setFilesModalLoading(true)
+        const res = await fetch(`${import.meta.env.VITE_SERVER_URL}/files/tree/${id || prospectId}`);
+        const data = await res.json();
+        setIsLoading(false);
+        setFilesModalLoading(false)
+        setTree(data);
+      } catch (e) {
+        alert("Error al cargar árbol de archivos");
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [prospectId]
+  );
 
   // Carga inicial
   useEffect(() => {
@@ -167,6 +269,15 @@ export default function ClientsMRT() {
     }
   };
 
+  // Abrir modal de archivos
+  const openFilesModal = async (p: Prospect) => {
+    setFilesModalProspect(p)
+    setProspectId(p.id)
+    setFilesModalLoading(true);
+    setFilesModalOpen(true);
+    refreshTree(p.id)
+  };
+
   // Instancia MRT
   const table = useMaterialReactTable<Prospect>({
     columns,
@@ -208,17 +319,19 @@ export default function ClientsMRT() {
       return [
         <button
           key="attended"
+          disabled
           onClick={() => console.log("Marcar como atendido", p.id)}
-          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100 disabled:text-gray-400"
         >
-          <CheckCircleIcon className="h-5 w-5" /> Marcar como atendido
+          <CheckCircleIcon className="h-5 w-5" /> Marcar como atendido (En desarrollo)
         </button>,
         <button
           key="verify"
+          disabled
           onClick={() => console.log("Verificar cliente", p.id)}
-          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100 disabled:text-gray-400"
         >
-          <CheckIcon className="h-5 w-5" /> Verificar cliente
+          <CheckIcon className="h-5 w-5" /> Verificar cliente (En desarrollo)
         </button>,
         <button
           key="email"
@@ -238,6 +351,36 @@ export default function ClientsMRT() {
         >
           <DocumentArrowDownIcon className="h-5 w-5" /> Download Client Summary
         </button>,
+
+        /* NUEVO: Ver archivos -> abre modal con autoscroll */
+        <button
+          key="files"
+          onClick={() => openFilesModal(p)}
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+        >
+          <EyeIcon className="h-5 w-5" /> Ver archivos
+        </button>,
+        <button
+          key="files"
+          onClick={async () => {
+            const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(p.id)}&name=${encodeURIComponent(prospectNameFallback(p as never))}&expires=120`;
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Fallo: ${res.status}`);
+                const blob = await res.blob();
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `${name}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(a.href);
+                a.remove();
+          }}
+          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+        >
+          <DownloadIcon className="h-5 w-5" /> Descargar archivos
+        </button>,
+
         <button
           key="edit"
           onClick={() => navigate(`/manage/client?id=${p.id}`)}
@@ -262,7 +405,7 @@ export default function ClientsMRT() {
     initialState: {
       density: "comfortable",
       pagination: { pageIndex: 0, pageSize: 10 },
-      showGlobalFilter: true, // mostrar busqueda nativa desde el inicio
+      showGlobalFilter: true, // mostrar búsqueda nativa desde el inicio
       columnPinning: { left: ["mrt-row-select"] },
     },
 
@@ -285,7 +428,150 @@ export default function ClientsMRT() {
   return (
     <ThemeProvider theme={lightTheme}>
       <CssBaseline />
-        <MaterialReactTable table={table} />
+      <MaterialReactTable table={table} />
+
+      {/* Modal "Ver archivos" */}
+      <Dialog
+        open={filesModalOpen}
+        onClose={() => setFilesModalOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Archivos {filesModalProspect ? `de ${filesModalProspect.name ?? ""} ${filesModalProspect.lastName ?? ""}`.trim() : ""}
+        </DialogTitle>
+
+        {/* Contenido auto-scroll: maxHeight + overflow */}
+        <DialogContent dividers sx={{ maxHeight: 420, overflow: "auto" }}>
+          {filesModalLoading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <CircularProgress size={22} />
+              <span>Cargando archivos…</span>
+            </div>
+          ) : tree.length === 0 ? (
+            <span>No hay archivos para mostrar.</span>
+          ) : (
+            <FileTree
+              nodes={tree}
+              // En todas las acciones, activamos y desactivamos el loader
+              onDelete={async (path) => {
+                if (!confirm("¿Estás seguro que deseas eliminar este archivo?")) return;
+                try {
+                  setIsLoading(true);
+                  await fetch(`${import.meta.env.VITE_SERVER_URL}/files/delete`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path }),
+                  });
+                  await refreshTree();
+                } catch (e) {
+                  alert("Error al eliminar");
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              onMove={async (sourcePath, destinationPath) => {
+                try {
+                  setIsLoading(true);
+                  await fetch(`${import.meta.env.VITE_SERVER_URL}/files/move`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ from: sourcePath, to: destinationPath }),
+                  });
+                  await refreshTree();
+                } catch (e) {
+                  alert("Error al mover");
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              onRename={async (oldPath, newName) => {
+                try {
+                  setIsLoading(true);
+                  await fetch(`${import.meta.env.VITE_SERVER_URL}/files/rename`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ oldPath, newName }),
+                  });
+                  await refreshTree();
+                } catch (e) {
+                  alert("Error al renombrar");
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              onDownloadZip={async (path, name) => {
+
+                const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(path)}&name=${encodeURIComponent(name)}&expires=120`;
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Fallo: ${res.status}`);
+                const blob = await res.blob();
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `${name}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(a.href);
+                a.remove();
+              }}
+              onShare={async (path, type) => {
+                const email = prompt("¿Correo con quien compartir?");
+                if (!email) return;
+                try {
+                  setIsLoading(true);
+                  await fetch(`${import.meta.env.VITE_SERVER_URL}/share/send`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path, type: type.toUpperCase(), email }),
+                  });
+                  alert("Compartido ✔️");
+                } catch (e) {
+                  alert("Error al compartir");
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              getZipName={getZipName}
+            // (Opcional) si el FileTree también puede mostrar su propio loading:
+            />
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled
+            onClick={async () => {
+                if(prospectId){
+                   const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(prospectId)}&expires=120`;
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Fallo: ${res.status}`);
+                const blob = await res.blob();
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `${name}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(a.href);
+                a.remove();
+                }
+               
+              }}
+          >
+            Descargar Todo (en desarrollo)
+          </Button><Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFilesModalOpen(false)}
+          >
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ThemeProvider>
   );
 }
@@ -302,16 +588,18 @@ function BulkActions({
   onReload: () => Promise<void>;
 }) {
   const selectedRows = table.getSelectedRowModel().rows ?? [];
-  const disabled = selectedRows.length === 0;
-
   const selectedProspects: Prospect[] = selectedRows.map((r: any) => r.original);
+
+  const hasSelection = selectedProspects.length > 0;
+  const hasMultiSelection = selectedProspects.length >= 2;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {/* Exportar PDF individual por cada seleccionado (ya existente) */}
       <Button
         size="sm"
         variant="outline"
-        disabled={disabled}
+        disabled={!hasSelection}
         onClick={async () => {
           await Promise.all(selectedProspects.map((p) => exportProspectPDF(p)));
         }}
@@ -320,10 +608,37 @@ function BulkActions({
         Exportar PDF
       </Button>
 
+      {/* NUEVO: Descargar resúmenes (se habilita solo con 2+) */}
       <Button
         size="sm"
         variant="outline"
-        disabled={disabled}
+        disabled={!hasMultiSelection}
+        onClick={async () => {
+          await downloadSummaries(selectedProspects);
+        }}
+        startIcon={<DocumentArrowDownIcon className="size-5" />}
+      >
+        Descargar resúmenes
+      </Button>
+
+      {/* NUEVO: Descargar resúmenes con archivos (se habilita solo con 2+) */}
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!hasMultiSelection}
+        onClick={async () => {
+          await downloadSummariesWithFiles(selectedProspects);
+        }}
+        startIcon={<DocumentArrowDownIcon className="size-5" />}
+      >
+        Resúmenes + archivos
+      </Button>
+
+      {/* Archivar seleccionados */}
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!hasSelection}
         onClick={async () => {
           await Promise.all(selectedProspects.map((p) => deleteProspect(p.id)));
           await onReload();
