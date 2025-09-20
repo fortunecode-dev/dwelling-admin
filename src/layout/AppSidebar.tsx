@@ -8,6 +8,7 @@ import {
   FileIcon,
   HorizontaLDots,
   MailIcon,
+  TrashBinIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import UserDropdown from "../components/header/UserDropdown";
@@ -23,8 +24,13 @@ type NavItem = {
 const navItems: NavItem[] = [
   {
     icon: <UserIcon />,
-    name: "Clients",
+    name: "Prospects",
     path:"/clients"
+  },
+  {
+    icon: <TrashBinIcon />,
+    name: "Deleted Prospects",
+    path:"/deleted-prospects"
   },
    {
     icon: <MailIcon />,

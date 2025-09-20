@@ -20,7 +20,6 @@ import {
 import {
   PlusIcon,
   PencilSquareIcon,
-  TrashIcon,
   EnvelopeIcon,
   DocumentArrowDownIcon,
   CheckCircleIcon,
@@ -28,7 +27,7 @@ import {
   EyeIcon,
 } from "@heroicons/react/24/outline";
 
-import { deleteProspect, getActiveProspects } from "../../services/prospects.service";
+import { restoreProspect,  getDeletedProspects } from "../../services/prospects.service";
 import { exportProspectPDF } from "../../libs/exportProspectToPdf";
 import Button from "../../components/ui/button/Button";
 import FileTree from "./components/FileTree";
@@ -210,7 +209,7 @@ export default function ClientsMRT() {
     (async () => {
       setIsLoading(true);
       try {
-        const list = await getActiveProspects();
+        const list = await getDeletedProspects();
         setProspects(list ?? []);
       } finally {
         setIsLoading(false);
@@ -262,7 +261,7 @@ export default function ClientsMRT() {
   const reload = async () => {
     setIsLoading(true);
     try {
-      const list = await getActiveProspects();
+      const list = await getDeletedProspects();
       setProspects(list ?? []);
     } finally {
       setIsLoading(false);
@@ -392,12 +391,12 @@ export default function ClientsMRT() {
         <button
           key="archive"
           onClick={async () => {
-            await deleteProspect(p.id);
+            await restoreProspect(p.id);
             await reload();
           }}
           className="flex w-full items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50"
         >
-          <TrashIcon className="h-5 w-5" /> Delete
+           Restore
         </button>,
       ];
     },
@@ -641,12 +640,11 @@ function BulkActions({
         variant="outline"
         disabled={!hasSelection}
         onClick={async () => {
-          await Promise.all(selectedProspects.map((p) => deleteProspect(p.id)));
+          await Promise.all(selectedProspects.map((p) => restoreProspect(p.id)));
           await onReload();
         }}
-        startIcon={<TrashIcon className="size-5" />}
       >
-        Delete
+        Restore
       </Button>
     </div>
   );

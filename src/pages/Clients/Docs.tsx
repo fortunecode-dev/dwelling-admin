@@ -3,7 +3,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import FileTree from "./components/FileTree";
 import { getProspectFolderNamesMap, getZipName } from "../../utils/prospects-parsing";
-import { getActiveProspects } from "../../services/prospects.service";
+import { getAllProspects } from "../../services/prospects.service";
 
 type TreeNode = {
   name: string;
@@ -19,7 +19,7 @@ export default function Docs() {
   const refreshTree = useCallback(() => {
     Promise.all([
       fetch(`${import.meta.env.VITE_SERVER_URL}/files/tree/`).then(res => res.json()),
-      getActiveProspects().then(data => data)
+      getAllProspects().then(data => data)
     ])
       .then(([treeData, prospectsData]) => {
         // Convertir createdAt a Date y aplicar función generadora de nombres
