@@ -16,6 +16,7 @@ import {
 
 export type TreeNode = {
   name: string;
+  rootName?:string
   path: string;
   type: "folder" | "file";
   children?: TreeNode[];
@@ -73,6 +74,7 @@ const FileTree: React.FC<FileTreeProps> = ({
           key={node.path}
           node={node}
           level={0}
+          rootName={node.rootName}
           onRename={onRename}
           onDownloadZip={onDownloadZip}
           onShare={onShare}
@@ -137,6 +139,7 @@ const FileTree: React.FC<FileTreeProps> = ({
 const FileTreeItem: React.FC<{
   node: TreeNode;
   level: number;
+  rootName?:string
   onRename: (oldPath: string, newPath: string) => void;
   onDownloadZip: (path: string, zipName: string) => void;
   onShare: (path: string, type: "file" | "folder") => void;
@@ -151,7 +154,7 @@ const FileTreeItem: React.FC<{
   parentsInitiallyOpen?: boolean;
 }> = ({
   node,
-  level,
+  level,rootName,
   onRename,
   onDownloadZip,
   onShare,
@@ -237,8 +240,8 @@ const FileTreeItem: React.FC<{
         )}
 
         <div className="flex gap-2 ml-auto">
-          {level!=0&&<button
-            onClick={() => onDownloadZip(node.path, getZipName(node.name,node.path, node.type,father))}
+          {<button
+            onClick={() => onDownloadZip(node.path, rootName??"")}
             title="Descargar"
           >
             <DownloadIcon className="w-5 h-5 text-indigo-600 hover:text-indigo-800 disabled:bg-gray-dark" />
@@ -264,6 +267,7 @@ const FileTreeItem: React.FC<{
               key={child.path}
               node={child}
               level={level + 1}
+              rootName={rootName}
               onRename={onRename}
               onDownloadZip={onDownloadZip}
               onShare={onShare}

@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { prospectNameFallback } from "../utils/prospects-parsing";
 
 export function exportProspectPDF(prospect: any) {
   const doc = new jsPDF();
@@ -87,5 +88,5 @@ export function exportProspectPDF(prospect: any) {
     .map(([k, v]) => [formatLabel(k), String(v)]);
   section("Otros", otros);
 
-  doc.save(`Prospecto-${prospect.name || "detalle"}.pdf`);
+  doc.save(`${prospectNameFallback(prospect as never) || "Prospect file"} - Summary.pdf`);
 }

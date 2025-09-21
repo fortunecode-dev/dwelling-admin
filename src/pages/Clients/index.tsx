@@ -105,21 +105,6 @@ const lightTheme = createTheme({
   },
 });
 
-/* ---------------------------------------------
- * Utilidades locales
- * ------------------------------------------- */
-
-/** Descarga un blob como archivo */
-async function downloadBlobAsFile(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
 
 /**
  * Descarga resúmenes de múltiples prospectos.
@@ -149,26 +134,21 @@ async function downloadSummaries(selected: Prospect[]) {
  * Implementación de ejemplo llamando a un endpoint que genere el ZIP.
  */
 async function downloadSummariesWithFiles(selected: Prospect[]) {
-  // TODO: Conectar a tu backend real.
-  // Endpoint sugerido: POST /api/prospects/summary-with-files-zip { ids: string[] }
-  const ids = selected.map((p) => p.id);
-  const res = await fetch(`/api/prospects/summary-with-files-zip`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids }),
-  });
-  if (!res.ok) {
-    // Fallback: si no existe endpoint, al menos generar PDFs individuales.
-    for (const p of selected) {
-      await exportProspectPDF(p);
-    }
-    return;
+  for (const p of selected) {
+    await exportProspectPDF(p);
+    const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(p.id)}&name=${encodeURIComponent(prospectNameFallback(p as never))}&expires=120`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Fallo: ${res.status}`);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${prospectNameFallback(p as never)}_all.zip`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    a.remove();
   }
-  const blob = await res.blob();
-  await downloadBlobAsFile(
-    blob,
-    `prospect-summaries-with-files_${new Date().toISOString().slice(0, 10)}.zip`
-  );
+
 }
 
 export default function ClientsMRT() {
@@ -362,24 +342,24 @@ export default function ClientsMRT() {
         </button>,
         <button
           key="files"
-          disabled
           onClick={async () => {
             const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(p.id)}&name=${encodeURIComponent(prospectNameFallback(p as never))}&expires=120`;
 
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Fallo: ${res.status}`);
-                const blob = await res.blob();
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = `${name}.zip`;
-                document.body.appendChild(a);
-                a.click();
-                URL.revokeObjectURL(a.href);
-                a.remove();
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fallo: ${res.status}`);
+            const blob = await res.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `${prospectNameFallback(p as never)}_all.zip`;
+            document.body.appendChild(a);
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(a.href);
+            a.remove();
           }}
           className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100 disabled:text-gray-500"
         >
-          <DownloadIcon className="h-5 w-5" /> Download all files (En desarrollo)
+          <DownloadIcon className="h-5 w-5" /> Download all files
         </button>,
 
         <button
@@ -503,15 +483,14 @@ export default function ClientsMRT() {
                 }
               }}
               onDownloadZip={async (path, name) => {
-
                 const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(path)}&name=${encodeURIComponent(name)}&expires=120`;
-
+                const splitPath = path.split("/")
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`Fallo: ${res.status}`);
                 const blob = await res.blob();
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
-                a.download = `${name}.zip`;
+                a.download = `${prospectNameFallback(filesModalProspect as never)}(${splitPath.length == 3 ? "file - " + splitPath[2] : splitPath[1]}).zip`;
                 document.body.appendChild(a);
                 a.click();
                 URL.revokeObjectURL(a.href);
@@ -544,26 +523,24 @@ export default function ClientsMRT() {
           <Button
             variant="primary"
             size="sm"
-            disabled
             onClick={async () => {
-                if(prospectId){
-                   const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(prospectId)}&expires=120`;
-
+              if (prospectId) {
+                const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(prospectId)}&expires=120`;
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`Fallo: ${res.status}`);
                 const blob = await res.blob();
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
-                a.download = `${name}.zip`;
+                a.download = `${prospectNameFallback(filesModalProspect as never)}_all.zip`;
                 document.body.appendChild(a);
                 a.click();
                 URL.revokeObjectURL(a.href);
                 a.remove();
-                }
-               
-              }}
+              }
+
+            }}
           >
-            Download all (en desarrollo)
+            Download all
           </Button><Button
             variant="outline"
             size="sm"
@@ -625,14 +602,13 @@ function BulkActions({
       <Button
         size="sm"
         variant="outline"
-        disabled
-        // disabled={!hasMultiSelection}
+        disabled={!hasSelection}
         onClick={async () => {
           await downloadSummariesWithFiles(selectedProspects);
         }}
         startIcon={<DocumentArrowDownIcon className="size-5" />}
       >
-        Summary + Files (en desarrollo)
+        Summary + Files
       </Button>
 
       {/* Archivar seleccionados */}

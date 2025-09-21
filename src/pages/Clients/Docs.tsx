@@ -30,7 +30,8 @@ export default function Docs() {
         const renamedTree = treeData.map((node: TreeNode) => {
           return {
             ...node,
-            name: nameMap[node.name] || node.name
+            name: nameMap[node.name] || node.name,
+            rootName:nameMap[node.name]
           };
         });
 
@@ -77,15 +78,14 @@ export default function Docs() {
           }).then(() => refreshTree());
         }}
         onDownloadZip={async (path, name) => {
-
           const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(path)}&name=${encodeURIComponent(name)}&expires=120`;
-
+          const splitPath = path.split("/")
           const res = await fetch(url);
           if (!res.ok) throw new Error(`Fallo: ${res.status}`);
           const blob = await res.blob();
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob);
-          a.download = `${name}.zip`;
+          a.download = `${name} (${splitPath.length == 3 ? "file - " + splitPath[2] : splitPath[1]}).zip`;
           document.body.appendChild(a);
           a.click();
           URL.revokeObjectURL(a.href);
