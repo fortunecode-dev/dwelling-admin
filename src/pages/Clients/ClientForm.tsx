@@ -4,7 +4,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Input from "../../components/form/input/InputField";
 import Checkbox from "../../components/form/input/Checkbox";
-import { getProspect, postProspect, updateProspect } from "../../services/prospects.service";
+import { getProspect, postAnswerQuestion, postProspect, updateProspect } from "../../services/prospects.service";
 import { useSearchParams } from "react-router";
 import FileTree from "./components/FileTree";
 import { getZipName } from "../../utils/prospects-parsing";
@@ -82,6 +82,11 @@ export default function ClientForm() {
   // Atajo para pasar a hijos (Dropzone / FileTree)
   const setBusy = useCallback((v: boolean) => setIsLoading(v), []);
 
+  /** === NUEVO: estado para responder preguntas === */
+  const [showAnswerModal, setShowAnswerModal] = useState(false);
+  const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+  const [answerText, setAnswerText] = useState<string>("");
+
   /** === HELPERS === */
 
   // Carga/recarga del árbol en base al id actual (o el id devuelto por el submit)
@@ -111,6 +116,49 @@ export default function ClientForm() {
     },
     [prospectId]
   );
+
+  // NUEVO: abrir modal para responder/editar respuesta
+  const openAnswerModal = useCallback((qId: string) => {
+    setActiveQuestionId(qId);
+    const current = (metadata?.question?.[qId] as any) || {};
+    setAnswerText(current?.answer ?? "");
+    setShowAnswerModal(true);
+  }, [metadata]);
+
+  // NUEVO: enviar respuesta -> actualiza metadata y persiste si hay id
+  const handleSendAnswer = useCallback(async () => {
+    if (!activeQuestionId) return;
+    // Validación mínima (opcional)
+    if (!answerText.trim()) {
+      alert("La respuesta no puede estar vacía.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+     await postAnswerQuestion(activeQuestionId,formData.email,answerText)
+
+      // Actualizar metadata inmutablemente
+      const prevQ = { ...(metadata?.question || {}) };
+      const prevItem = { ...(prevQ[activeQuestionId] || {}) };
+      const nextQ = {
+        ...prevQ,
+        [activeQuestionId]: { ...prevItem, answer: answerText.trim() },
+      };
+      const nextMetadata = { ...(metadata || {}), question: nextQ };
+
+      setMetadata(nextMetadata);
+      setShowAnswerModal(false);
+      setActiveQuestionId(null);
+      setAnswerText("");
+      alert("Respuesta guardada correctamente ✔️");
+    } catch (e) {
+      console.error(e);
+      alert("Error al guardar la respuesta");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeQuestionId, answerText, formData, metadata]);
 
   /** === EFFECTS === */
   useEffect(() => {
@@ -174,14 +222,12 @@ export default function ClientForm() {
       // Crear o actualizar
       if (payload.id) {
         const updated = await updateProspect(payload.id, payload);
-        // opcional: mantener consistencia
         await refreshTree(updated);
       } else {
-        // postProspect devuelve los datos del cliente → destructurar id y setear en hook
         const created = await postProspect(payload);
         const { id: newId } = created || {};
         if (newId) {
-          setProspectId(String(newId)); // <-- Hook id creado
+          setProspectId(String(newId));
           setFormData((prev: any) => ({ ...prev, id: newId }));
         }
         await refreshTree(created);
@@ -232,6 +278,68 @@ export default function ClientForm() {
     );
   };
 
+  /** === NUEVO: render listado de Questions & Messages === */
+  const renderQuestionsTab = () => {
+    const entries = Object.entries(metadata?.question || {});
+    if (!entries.length) {
+      return (
+        <div className="rounded-lg bg-white p-6 text-sm text-gray-600 shadow">
+          No questions to show.
+        </div>
+      );
+    }
+
+    // Ordenar por id descendente si es numérico (timestamps) o por string desc
+    entries.sort((a: any, b: any) => {
+      const an = Number(a[0]); const bn = Number(b[0]);
+      if (!Number.isNaN(an) && !Number.isNaN(bn)) return bn - an;
+      return String(b[0]).localeCompare(String(a[0]));
+    });
+
+    return (
+      <div className={`space-y-4 ${isLoading ? "pointer-events-none opacity-60" : ""}`}>
+        {entries.map(([qid, payload]: any) => {
+          const q = payload?.question ?? "";
+          const ans = payload?.answer ?? "";
+          const dateHint =
+            !Number.isNaN(Number(qid)) && Number(qid) > 1000000000000
+              ? new Date(Number(qid)).toLocaleString()
+              : `ID: ${qid}`;
+
+          return (
+            <div key={qid} className="rounded-lg bg-white p-5 shadow">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-xs text-gray-500">{dateHint}</div>
+                <div className="text-[11px] uppercase tracking-wide text-emerald-600">Question</div>
+              </div>
+
+              <p className="mb-3 text-sm font-medium text-gray-800">{q || <em className="text-gray-500">[Sin contenido]</em>}</p>
+
+              {ans ? (
+                <div className="rounded-md border border-emerald-100 bg-emerald-50 p-3">
+                  <div className="mb-1 text-[11px] font-semibold uppercase text-emerald-700">Answer</div>
+                  <p className="whitespace-pre-wrap text-sm text-emerald-900">{ans}</p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Sin respuesta</span>
+                  <button
+                    type="button"
+                    onClick={() => openAnswerModal(qid)}
+                    disabled={isLoading}
+                    className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
+                  >
+                    Answer
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="relative p-6" aria-busy={isLoading}>
       <PageMeta title="Client Form Web" description="Formulario de clientes con Tailwind + React" />
@@ -249,7 +357,7 @@ export default function ClientForm() {
 
       {/* Tabs */}
       <div className="mb-6 flex space-x-6 border-b">
-        {["Basic Data", "Metadata", "Attachments"].map((tab) => (
+        {["Basic Data", "Metadata", "Attachments", "Questions & Messages"].map((tab) => (
           <button
             key={tab}
             onClick={() => !isLoading && setActiveTab(tab)}
@@ -328,12 +436,11 @@ export default function ClientForm() {
             mandatory="name"
             error={"You need to add at least a name"}
             afterSubmit={refreshTree}
-            setBusy={setBusy} // <-- NUEVO
+            setBusy={setBusy}
           />
 
           <FileTree
             nodes={tree}
-            // En todas las acciones, activamos y desactivamos el loader
             onDelete={async (path) => {
               if (!confirm("¿Estás seguro que deseas eliminar este archivo?")) return;
               try {
@@ -406,8 +513,14 @@ export default function ClientForm() {
               }
             }}
             getZipName={getZipName}
-            // (Opcional) si el FileTree también puede mostrar su propio loading:
           />
+        </div>
+      )}
+
+      {/* NUEVO: Questions & Messages */}
+      {activeTab === "Questions & Messages" && (
+        <div className="rounded-lg bg-white p-6 shadow">
+          {renderQuestionsTab()}
         </div>
       )}
 
@@ -422,6 +535,64 @@ export default function ClientForm() {
           {isLoading ? "Saving..." : formData.id ? "Update" : "Create"}
         </button>
       </div>
+
+      {/* === NUEVO: MODAL PARA RESPONDER === */}
+      {showAnswerModal && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4"
+          aria-hidden={!showAnswerModal}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-lg">
+            <button
+              type="button"
+              onClick={() => setShowAnswerModal(false)}
+              className="absolute right-3 top-3 text-gray-600 hover:text-gray-800"
+              aria-label="Cerrar"
+            >
+              ✕
+            </button>
+
+            <h3 className="mb-4 text-center text-lg font-bold text-gray-800">Responder pregunta</h3>
+
+            <div className="mb-3 rounded-md border bg-gray-50 p-3">
+              <div className="mb-1 text-[11px] font-semibold uppercase text-gray-600">Pregunta</div>
+              <p className="whitespace-pre-wrap text-sm text-gray-800">
+                {activeQuestionId ? metadata?.question?.[activeQuestionId]?.question : ""}
+              </p>
+            </div>
+
+            <label className="mb-1 block text-sm font-medium text-gray-700">Tu respuesta</label>
+            <textarea
+              className="h-40 w-full resize-none rounded-md border border-gray-300 p-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+              value={answerText}
+              onChange={(e) => setAnswerText(e.target.value)}
+              disabled={isLoading}
+              placeholder="Escribe aquí la respuesta..."
+            />
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAnswerModal(false)}
+                className="rounded-md border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendAnswer}
+                className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
+                disabled={isLoading}
+              >
+                Send answer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -17,6 +17,15 @@ export async function getAllProspects() {
     return null
   }
 }
+export async function postAnswerQuestion(questionId:string,email:string,answer:string) {
+  try {
+    const { data } = await axios.put(`${import.meta.env.VITE_SERVER_URL}/prospect/answer`,{questionId,answer,email});
+    return data;
+  } catch (error) {
+    console.error("Error fetching prospect URL:", error);
+    return null
+  }
+}
 export async function getDeletedProspects() {
   try {
     const { data } = await axios.get(`${import.meta.env.VITE_SERVER_URL}/prospect/manage`,{params:{mode:"deleted"}});
