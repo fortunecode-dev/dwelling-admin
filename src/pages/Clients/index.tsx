@@ -184,6 +184,7 @@ export default function ClientsMRT() {
     },
     [prospectId]
   );
+  const [downloading, setDownloading] = useState(false);
 
   // Carga inicial
   useEffect(() => {
@@ -237,7 +238,7 @@ export default function ClientsMRT() {
       minSize: 120,
     },
   ], []);
-
+  
   // Recarga tras acciones
   const reload = async () => {
     setIsLoading(true);
@@ -410,146 +411,177 @@ export default function ClientsMRT() {
     <ThemeProvider theme={lightTheme}>
       <CssBaseline />
       <MaterialReactTable table={table} />
+    <Dialog
+      open={filesModalOpen}
+      onClose={() => !downloading && setFilesModalOpen(false)}
+      fullWidth
+      maxWidth="sm"
+      PaperProps={{ sx: { borderRadius: 3, position: "relative" } }}
+    >
+      {/* Overlay only inside modal while downloading */}
+      {downloading && (
+        <div
+          aria-live="polite"
+          aria-busy="true"
+          className="absolute inset-0 z-50 flex items-center justify-center bg-white/70"
+        >
+          <div className="flex flex-col items-center gap-2">
+            <CircularProgress size={26} />
+            <span className="text-sm text-gray-700">Downloading…</span>
+          </div>
+        </div>
+      )}
 
-      {/* Modal "Ver archivos" */}
-      <Dialog
-        open={filesModalOpen}
-        onClose={() => setFilesModalOpen(false)}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 3 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          Files {filesModalProspect ? `of ${filesModalProspect.name ?? ""} ${filesModalProspect.lastName ?? ""}`.trim() : ""}
-        </DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        Files {filesModalProspect ? `of ${(filesModalProspect.name ?? "")} ${(filesModalProspect.lastName ?? "")}`.trim() : ""}
+      </DialogTitle>
 
-        {/* Contenido auto-scroll: maxHeight + overflow */}
-        <DialogContent dividers sx={{ maxHeight: 420, overflow: "auto" }}>
-          {filesModalLoading ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <CircularProgress size={22} />
-              <span>Loading files…</span>
-            </div>
-          ) : tree.length === 0 ? (
-            <span>No files to show.</span>
-          ) : (
-            <FileTree
-              nodes={tree}
-              // En todas las acciones, activamos y desactivamos el loader
-              onDelete={async (path) => {
-                if (!confirm("¿Estás seguro que deseas eliminar este archivo?")) return;
-                try {
-                  setIsLoading(true);
-                  await fetch(`${import.meta.env.VITE_SERVER_URL}/files/delete`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ path }),
-                  });
-                  await refreshTree();
-                } catch (e) {
-                  alert("Error al eliminar");
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
-              onMove={async (sourcePath, destinationPath) => {
-                try {
-                  setIsLoading(true);
-                  await fetch(`${import.meta.env.VITE_SERVER_URL}/files/move`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ from: sourcePath, to: destinationPath }),
-                  });
-                  await refreshTree();
-                } catch (e) {
-                  alert("Error al mover");
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
-              onRename={async (oldPath, newName) => {
-                try {
-                  setIsLoading(true);
-                  await fetch(`${import.meta.env.VITE_SERVER_URL}/files/rename`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ oldPath, newName }),
-                  });
-                  await refreshTree();
-                } catch (e) {
-                  alert("Error al renombrar");
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
-              onDownloadZip={async (path, name) => {
-                const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(path)}&name=${encodeURIComponent(name)}&expires=120`;
-                const splitPath = path.split("/")
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Fallo: ${res.status}`);
-                const blob = await res.blob();
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = `${prospectNameFallback(filesModalProspect as never)}(${splitPath.length == 3 ? "file - " + splitPath[2] : splitPath[1]}).zip`;
-                document.body.appendChild(a);
-                a.click();
-                URL.revokeObjectURL(a.href);
-                a.remove();
-              }}
-              onShare={async (path, type) => {
-                const email = prompt("¿Correo con quien compartir?");
-                if (!email) return;
-                try {
-                  setIsLoading(true);
-                  await fetch(`${import.meta.env.VITE_SERVER_URL}/share/send`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ path, type: type.toUpperCase(), email }),
-                  });
-                  alert("Compartido ✔️");
-                } catch (e) {
-                  alert("Error al compartir");
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
-              getZipName={getZipName}
-            // (Opcional) si el FileTree también puede mostrar su propio loading:
-            />
-          )}
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={async () => {
-              if (prospectId) {
-                const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(prospectId)}&expires=120`;
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Fallo: ${res.status}`);
-                const blob = await res.blob();
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = `${prospectNameFallback(filesModalProspect as never)}_all.zip`;
-                document.body.appendChild(a);
-                a.click();
-                URL.revokeObjectURL(a.href);
-                a.remove();
+      {/* Auto-scroll content */}
+      <DialogContent dividers sx={{ maxHeight: 420, overflow: "auto" }}>
+        {filesModalLoading ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <CircularProgress size={22} />
+            <span>Loading files…</span>
+          </div>
+        ) : tree.length === 0 ? (
+          <span>No files to show.</span>
+        ) : (
+          <FileTree
+            nodes={tree}
+            // All actions set page-level loader, but download shows modal-level loader too
+            onDelete={async (path) => {
+              if (!confirm("Are you sure you want to delete this file?")) return;
+              try {
+                setIsLoading(true);
+                await fetch(`${import.meta.env.VITE_SERVER_URL}/files/delete`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ path }),
+                });
+                await refreshTree();
+              } catch (e) {
+                alert("Error deleting file");
+              } finally {
+                setIsLoading(false);
               }
-
             }}
-          >
-            Download all
-          </Button><Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFilesModalOpen(false)}
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+            onMove={async (sourcePath, destinationPath) => {
+              try {
+                setIsLoading(true);
+                await fetch(`${import.meta.env.VITE_SERVER_URL}/files/move`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ from: sourcePath, to: destinationPath }),
+                });
+                await refreshTree();
+              } catch (e) {
+                alert("Error moving");
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            onRename={async (oldPath, newName) => {
+              try {
+                setIsLoading(true);
+                await fetch(`${import.meta.env.VITE_SERVER_URL}/files/rename`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ oldPath, newName }),
+                });
+                await refreshTree();
+              } catch (e) {
+                alert("Error renaming");
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            onDownloadZip={async (path, name) => {
+              setDownloading(true); // << activate modal loader
+              try {
+                const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(path)}&name=${encodeURIComponent(name)}&expires=120`;
+                const splitPath = path.split("/");
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Failed: ${res.status}`);
+                const blob = await res.blob();
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `${prospectNameFallback(filesModalProspect as never)} (${splitPath.length === 3 ? "file - " + splitPath[2] : splitPath[1]}).zip`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(a.href);
+                a.remove();
+              } catch (e) {
+                console.error(e);
+                alert("Error downloading ZIP");
+              } finally {
+                setDownloading(false); // << deactivate modal loader
+              }
+            }}
+            onShare={async (path, type) => {
+              const email = prompt("Email to share with?");
+              if (!email) return;
+              try {
+                setIsLoading(true);
+                await fetch(`${import.meta.env.VITE_SERVER_URL}/share/send`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ path, type: type.toUpperCase(), email }),
+                });
+                alert("Shared ✔️");
+              } catch (e) {
+                alert("Error sharing");
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            getZipName={getZipName}
+          />
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={downloading}
+          onClick={async () => {
+            if (!prospectId) return;
+            setDownloading(true); // << activate modal loader
+            try {
+              const url = `${import.meta.env.VITE_SERVER_URL}/files/zip?folder=${encodeURIComponent(prospectId)}&expires=120`;
+              const res = await fetch(url);
+              if (!res.ok) throw new Error(`Failed: ${res.status}`);
+              const blob = await res.blob();
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = `${prospectNameFallback(filesModalProspect as never)}_all.zip`;
+              document.body.appendChild(a);
+              a.click();
+              URL.revokeObjectURL(a.href);
+              a.remove();
+            } catch (e) {
+              console.error(e);
+              alert("Error downloading ZIP");
+            } finally {
+              setDownloading(false); // << deactivate modal loader
+            }
+          }}
+        >
+          Download all
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setFilesModalOpen(false)}
+          disabled={downloading}
+        >
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+
     </ThemeProvider>
   );
 }
