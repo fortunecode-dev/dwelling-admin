@@ -641,7 +641,11 @@ export default function ClientForm() {
 
       {/* === NEW: FILE TYPE MODAL (before uploads) === */}
       {showTypeModal && (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/50 px-4"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
             <button
               type="button"
@@ -653,18 +657,25 @@ export default function ClientForm() {
               ✕
             </button>
 
-            <h3 className="mb-4 text-center text-lg font-bold text-gray-800">Specify file type</h3>
+            <h3 className="mb-4 text-center text-lg font-bold text-gray-800">
+              Specify file type
+            </h3>
             <p className="mb-3 text-sm text-gray-600">
-              Please enter a short label for the kind of files you are uploading (e.g., <em>Blueprint</em>, <em>Permit</em>, <em>Invoice</em>).
+              Please select the category of files you are uploading.
             </p>
 
-            <input
+            <select
               value={uploadTypeText}
               onChange={(e) => setUploadTypeText(e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="Enter file type…"
               autoFocus
-            />
+            >
+              <option value="">Select a type...</option>
+              <option value="photos">Photos</option>
+              <option value="videos">Videos</option>
+              <option value="blueprints">Blueprints</option>
+              <option value="documents/forms">Documents/Forms</option>
+            </select>
 
             <div className="mt-5 flex justify-end gap-3">
               <button
@@ -677,7 +688,8 @@ export default function ClientForm() {
               <button
                 type="button"
                 onClick={confirmUploadType}
-                className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+                disabled={!uploadTypeText}
+                className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue
               </button>
@@ -685,6 +697,7 @@ export default function ClientForm() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

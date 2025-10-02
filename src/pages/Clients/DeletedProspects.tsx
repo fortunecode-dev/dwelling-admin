@@ -5,7 +5,7 @@ import {
   type MRT_ColumnDef,
   useMaterialReactTable,
 } from "material-react-table";
-import { MRT_Localization_ES } from "material-react-table/locales/es";
+// import { MRT_Localization_ES } from "material-react-table/locales/es";
 import {
   ThemeProvider,
   createTheme,
@@ -23,7 +23,6 @@ import {
   EnvelopeIcon,
   DocumentArrowDownIcon,
   CheckCircleIcon,
-  CheckIcon,
   EyeIcon,
 } from "@heroicons/react/24/outline";
 
@@ -33,6 +32,7 @@ import Button from "../../components/ui/button/Button";
 import FileTree from "./components/FileTree";
 import { getZipName, prospectNameFallback } from "../../utils/prospects-parsing";
 import { DownloadIcon } from "../../icons";
+import axios from "axios";
 
 /* ---------------------------------------------
  * Tipo mínimo esperado desde tu backend
@@ -44,13 +44,15 @@ type Prospect = {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  attended?: string | null;
   status?: string | null;
   metadata?: Record<string, unknown> | null;
 };
 
 const showOrNotSet = (v?: unknown) =>
   !v || String(v).trim() === "" ? "Not set" : String(v);
-
+const showOrNotSetAttended = (v?: unknown) =>
+  !v || String(v).trim() === "" ? "Unattended" : "Attended";
 /* ---------------------------------------------
  * Tema MUI: SOLO MODO CLARO (minimalista)
  * ------------------------------------------- */
@@ -230,8 +232,8 @@ export default function ClientsMRT() {
     },
     {
       header: "Status",
-      id: "status",
-      accessorFn: (row) => showOrNotSet(row.status),
+      id: "attended",
+      accessorFn: (row) => showOrNotSetAttended(row.attended),
       size: 140,
       minSize: 120,
     },
@@ -261,7 +263,7 @@ export default function ClientsMRT() {
   const table = useMaterialReactTable<Prospect>({
     columns,
     data: prospects,
-    localization: MRT_Localization_ES,
+    // localization: MRT_Localization_ES,
     // Herramientas de gestión
     enableSorting: true,
     enableColumnFilters: true,
@@ -296,22 +298,19 @@ export default function ClientsMRT() {
     renderRowActionMenuItems: ({ row }) => {
       const p = row.original;
       return [
-        <button
+       <button
           key="attended"
-          disabled
-          onClick={() => console.log("Marcar como atendido", p.id)}
+          disabled={!!p.attended}
+          onClick={async () => {
+            setIsLoading(true);
+            await axios.post(`${import.meta.env.VITE_SERVER_URL}/prospect/${p.id}/atender`)
+            await reload()
+          }}
           className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100 disabled:text-gray-400"
         >
-          <CheckCircleIcon className="h-5 w-5" /> Mark as attended (En desarrollo)
+          <CheckCircleIcon className="h-5 w-5" />Mark as attended
         </button>,
-        <button
-          key="verify"
-          disabled
-          onClick={() => console.log("Verificar cliente", p.id)}
-          className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100 disabled:text-gray-400"
-        >
-          <CheckIcon className="h-5 w-5" /> Verify client (En desarrollo)
-        </button>,
+       
         <button
           key="email"
           disabled={!p.email}
