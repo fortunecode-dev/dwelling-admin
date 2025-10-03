@@ -17,22 +17,20 @@ export function useAuth() {
         return createSession(data)
       }
       // @ts-ignore
-      const token = await cookieStore.get({ name: "token" }) ?? sessionStorage.getItem("token");
+      const token = await sessionStorage.get({ name: "token" });
       if (token) {
         const { data } = await axios.post(`${import.meta.env.VITE_SERVER_URL}/user/info`, { token })
         createSession(data)
       }
-      navigate("/clients")
     } catch (e) {
-      navigate("/clients")
+      alert(e)
+      navigate("/")
       console.error("Error obteniendo datos del usuario", e)
     }
   }
 
   const createSession = async (userInfo: any) => {
     sessionStorage.setItem("token", userInfo.token)
-    // @ts-ignore
-    await cookieStore.set("token", userInfo.token)
     setUser(userInfo)
   }
 

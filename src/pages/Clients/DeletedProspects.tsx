@@ -32,7 +32,7 @@ import Button from "../../components/ui/button/Button";
 import FileTree from "./components/FileTree";
 import { getZipName, prospectNameFallback } from "../../utils/prospects-parsing";
 import { DownloadIcon } from "../../icons";
-import axios from "axios";
+import api from "../../libs/axios";
 
 /* ---------------------------------------------
  * Tipo mínimo esperado desde tu backend
@@ -303,7 +303,7 @@ export default function ClientsMRT() {
           disabled={!!p.attended}
           onClick={async () => {
             setIsLoading(true);
-            await axios.post(`${import.meta.env.VITE_SERVER_URL}/prospect/${p.id}/atender`)
+            await api.post(`/prospect/${p.id}/atender`)
             await reload()
           }}
           className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100 disabled:text-gray-400"

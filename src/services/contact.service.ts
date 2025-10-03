@@ -1,9 +1,9 @@
-import axios from "axios";
+import api from "../libs/axios";
 
 export async function postAnswer(answerData: any) {
   try {
-    const { data } = await axios.put(
-      `${import.meta.env.VITE_SERVER_URL}/prospect/answer`,
+    const { data } = await api.put(
+      `/prospect/answer`,
       answerData
     );
     return data;
