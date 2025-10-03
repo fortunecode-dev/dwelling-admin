@@ -1,6 +1,8 @@
+import { waitForToken } from "../libs/auth";
 import api from "../libs/axios";
 export async function getActiveProspects() {
   try {
+    await waitForToken()
     const { data } = await api.get(`/prospect/manage`);
     return data;
   } catch (error) {
